@@ -112,7 +112,7 @@ export function TodoDashboard() {
       </header>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Bonjour {user?.username} 👋</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Bonjour {user?.username}</h1>
         <p className="mt-1 text-sm text-muted">
           <span className="font-medium text-accent">{remaining}</span> tâche{remaining > 1 ? "s" : ""} à faire
           sur {todos.length}

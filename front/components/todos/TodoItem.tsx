@@ -96,7 +96,7 @@ export function TodoItem({ todo, onUpdate, onDelete }: TodoItemProps) {
   }
 
   return (
-    <li className={`card flex flex-col gap-2 border-l-4 p-4 ${todo.completed ? "border-l-emerald-500 opacity-75" : "border-l-accent"}`}>
+    <li className={`card flex flex-col gap-2 p-4 ${todo.completed ? "opacity-75" : ""}`}>
       {error !== null && <Alert message={errorMessage(error)} />}
       <div className="flex items-start gap-3">
         <input
@@ -105,7 +105,7 @@ export function TodoItem({ todo, onUpdate, onDelete }: TodoItemProps) {
           checked={todo.completed}
           onChange={() => run(() => onUpdate(todo.id, { completed: !todo.completed }))}
           disabled={isBusy}
-          className="mt-1 size-5 shrink-0 cursor-pointer accent-emerald-500"
+          className="mt-1 size-5 shrink-0 cursor-pointer accent-accent"
         />
         <label htmlFor={`todo-${todo.id}-completed`} className="min-w-0 flex-1 cursor-pointer">
           <span className={`block break-words font-medium ${todo.completed ? "text-muted line-through" : ""}`}>
