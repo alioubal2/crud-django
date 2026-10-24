@@ -8,6 +8,7 @@ import { getCurrentUser, logout } from "@/lib/auth";
 import { createTodo, deleteTodo, listTodos, updateTodo } from "@/lib/todos";
 import type { Todo, TodoInput, TodoPatch, User } from "@/lib/types";
 import { Alert } from "../Alert";
+import { Logo } from "../Logo";
 import { TodoForm } from "./TodoForm";
 import { TodoItem } from "./TodoItem";
 
@@ -103,17 +104,20 @@ export function TodoDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Mes tâches</h1>
-          <p className="text-sm text-muted">
-            Bonjour {user?.username} · {remaining} restante{remaining > 1 ? "s" : ""} sur {todos.length}
-          </p>
-        </div>
+      <header className="flex items-center justify-between gap-3">
+        <Logo />
         <button type="button" className="btn-ghost" onClick={handleLogout}>
           Se déconnecter
         </button>
       </header>
+
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Bonjour {user?.username} 👋</h1>
+        <p className="mt-1 text-sm text-muted">
+          <span className="font-medium text-accent">{remaining}</span> tâche{remaining > 1 ? "s" : ""} à faire
+          sur {todos.length}
+        </p>
+      </div>
 
       <TodoForm onCreate={handleCreate} />
 

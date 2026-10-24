@@ -1,11 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f4f5;
+  --background: #f5f5fa;
   --foreground: #18181b;
   --surface: #ffffff;
-  --border: #e4e4e7;
-  --muted: #71717a;
+  --border: #e4e4ec;
+  --muted: #6b6b7b;
+  /* Couleur d'accent : boutons, liens, focus, cases cochées. */
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --accent-soft: #eef2ff;
 }
 
 @theme inline {
@@ -14,22 +18,31 @@
   --color-surface: var(--surface);
   --color-border: var(--border);
   --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --surface: #18181b;
-    --border: #27272a;
-    --muted: #a1a1aa;
+    --background: #0b0b12;
+    --foreground: #f4f4f8;
+    --surface: #15151f;
+    --border: #2a2a3a;
+    --muted: #a0a0b4;
+    --accent: #818cf8;
+    --accent-foreground: #0b0b12;
+    --accent-soft: #1e1b4b;
   }
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(60rem 30rem at 50% -10rem, var(--accent-soft), transparent),
+    var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
 }
 
@@ -41,19 +54,23 @@ body {
 
   .input {
     @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-base outline-none transition
-      placeholder:text-muted focus:border-foreground focus:ring-2 focus:ring-foreground/15
+      placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20
       aria-invalid:border-red-500;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-foreground px-4 py-2 text-sm font-medium
-      text-background transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2
-      focus-visible:outline-foreground disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium
+      text-accent-foreground shadow-sm transition hover:brightness-110 focus-visible:outline-2
+      focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium transition
-      hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-foreground
+      hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-accent
       disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .link {
+    @apply font-medium text-accent underline-offset-4 hover:underline;
   }
 }
