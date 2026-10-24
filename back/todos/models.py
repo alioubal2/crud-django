@@ -3,9 +3,16 @@ from django.db import models
 
 
 class Todo(models.Model):
+    class Priority(models.TextChoices):
+        LOW = 'low', 'basse'
+        NORMAL = 'normal', 'normale'
+        HIGH = 'high', 'haute'
+
     title = models.CharField('titre', max_length=200)
     description = models.TextField('description', blank=True)
     completed = models.BooleanField('terminée', default=False)
+    priority = models.CharField('priorité', max_length=10, choices=Priority.choices, default=Priority.NORMAL)
+    due_date = models.DateField('échéance', null=True, blank=True)
     created_at = models.DateTimeField('créée le', auto_now_add=True)
     updated_at = models.DateTimeField('modifiée le', auto_now=True)
     # settings.AUTH_USER_MODEL plutôt qu'un import direct de User :

@@ -47,6 +47,25 @@ class TodoApiTests(APITestCase):
         self.assertEqual(todo.owner, self.alice)
         self.assertFalse(todo.completed)
         self.assertEqual(todo.description, '')
+        self.assertEqual(todo.priority, Todo.Priority.NORMAL)
+        self.assertIsNone(todo.due_date)
+
+    def test_create_todo_with_priority_and_due_date(self):
+        response = self.client.post(self.list_url, {
+            'title': 'Rendre le rapport', 'priority': 'high', 'due_date': '2026-11-15',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['priority'], 'high')
+        self.assertEqual(response.data['due_date'], '2026-11-15')
+
+    def test_create_todo_rejects_unknown_priority(self):
+        response = self.client.post(self.list_url, {
+            'title': 'Tâche', 'priority': 'urgente',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('priority', response.data)
 
     def test_create_todo_requires_title(self):
         response = self.client.post(self.list_url, {'title': '   '}, format='json')
