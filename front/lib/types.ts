@@ -8,11 +8,14 @@ export type User = {
 
 export type Priority = "low" | "normal" | "high";
 
+// Colonne du tableau dans laquelle se trouve la tâche.
+export type TodoStatus = "todo" | "in_progress" | "done";
+
 export type Todo = {
   id: number;
   title: string;
   description: string;
-  completed: boolean;
+  status: TodoStatus;
   priority: Priority;
   // Date au format "AAAA-MM-JJ", ou null si aucune échéance.
   due_date: string | null;
@@ -30,10 +33,10 @@ export type RegisterPayload = LoginPayload & {
   username: string;
 };
 
-export type TodoInput = Pick<Todo, "title" | "description" | "priority" | "due_date">;
+export type TodoInput = Pick<Todo, "title" | "description" | "status" | "priority" | "due_date">;
 
 // Pour PATCH : on n'envoie que les champs modifiés.
-export type TodoPatch = Partial<TodoInput & Pick<Todo, "completed">>;
+export type TodoPatch = Partial<TodoInput>;
 
 // code : les 6 chiffres affichés dans le terminal du serveur Django.
 export type PasswordResetCodePayload = {

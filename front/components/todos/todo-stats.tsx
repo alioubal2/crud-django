@@ -4,15 +4,15 @@ import { Card } from "@/components/ui/card";
 
 type TodoStatsProps = {
   total: number;
-  completed: number;
+  done: number;
   remaining: number;
 };
 
-export function TodoStats({ total, completed, remaining }: TodoStatsProps) {
+export function TodoStats({ total, done, remaining }: TodoStatsProps) {
   return (
     <div className="grid grid-cols-3 gap-3">
       <StatCard label="Total" value={total} icon={ListTodo} iconClassName="text-muted-foreground" />
-      <StatCard label="Terminées" value={completed} icon={CheckCircle2} iconClassName="text-success" />
+      <StatCard label="Terminées" value={done} icon={CheckCircle2} iconClassName="text-success" />
       <StatCard label="Restantes" value={remaining} icon={Clock3} iconClassName="text-primary" />
     </div>
   );

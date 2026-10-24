@@ -1,9 +1,7 @@
 // Fonctions pures autour des tâches : aucune dépendance à React ni à l'API,
 // elles se testent et se réutilisent facilement.
 
-import type { Priority, Todo } from "./types";
-
-export type TodoFilter = "all" | "active" | "completed";
+import type { Priority, Todo, TodoStatus } from "./types";
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   low: "Basse",
@@ -11,19 +9,26 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   high: "Haute",
 };
 
-export function filterTodos(todos: Todo[], filter: TodoFilter, search: string): Todo[] {
+// Les colonnes du tableau, dans l'ordre d'affichage.
+export const STATUS_COLUMNS: { status: TodoStatus; label: string }[] = [
+  { status: "todo", label: "À faire" },
+  { status: "in_progress", label: "En cours" },
+  { status: "done", label: "Terminées" },
+];
+
+export const STATUS_LABELS = Object.fromEntries(
+  STATUS_COLUMNS.map(({ status, label }) => [status, label]),
+) as Record<TodoStatus, string>;
+
+export function searchTodos(todos: Todo[], search: string): Todo[] {
   const query = search.trim().toLowerCase();
-  return todos.filter((todo) => {
-    if (filter === "active" && todo.completed) return false;
-    if (filter === "completed" && !todo.completed) return false;
-    if (!query) return true;
-    return `${todo.title} ${todo.description}`.toLowerCase().includes(query);
-  });
+  if (!query) return todos;
+  return todos.filter((todo) => `${todo.title} ${todo.description}`.toLowerCase().includes(query));
 }
 
 export function computeStats(todos: Todo[]) {
-  const completed = todos.filter((todo) => todo.completed).length;
-  return { total: todos.length, completed, remaining: todos.length - completed };
+  const done = todos.filter((todo) => todo.status === "done").length;
+  return { total: todos.length, done, remaining: todos.length - done };
 }
 
 // "2026-11-15" -> Date locale à minuit. new Date("2026-11-15") l'interpréterait
@@ -34,7 +39,7 @@ function parseDate(value: string): Date {
 }
 
 export function isOverdue(todo: Todo): boolean {
-  if (!todo.due_date || todo.completed) return false;
+  if (!todo.due_date || todo.status === "done") return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return parseDate(todo.due_date) < today;

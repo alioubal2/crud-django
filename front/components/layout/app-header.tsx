@@ -23,7 +23,7 @@ type AppHeaderProps = {
 export function AppHeader({ user, onLogout }: AppHeaderProps) {
   return (
     <header className="border-b bg-card">
-      <div className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4">
         <AppLogo />
         {user && (
           <DropdownMenu>

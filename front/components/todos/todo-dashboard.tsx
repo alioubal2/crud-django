@@ -10,13 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage, isUnauthorized } from "@/lib/api";
 import { getCurrentUser, logout } from "@/lib/auth";
-import { computeStats, filterTodos, type TodoFilter } from "@/lib/todo-utils";
+import { computeStats, searchTodos, STATUS_LABELS } from "@/lib/todo-utils";
 import { createTodo, deleteTodo, listTodos, updateTodo } from "@/lib/todos";
-import type { Todo, TodoInput, User } from "@/lib/types";
+import type { Todo, TodoInput, TodoStatus, User } from "@/lib/types";
 import { DeleteTodoDialog } from "./delete-todo-dialog";
-import { TodoFilters } from "./todo-filters";
+import { TodoBoard } from "./todo-board";
 import { TodoFormDialog } from "./todo-form-dialog";
-import { TodoList, TodoListSkeleton } from "./todo-list";
+import { TodoSearch } from "./todo-search";
 import { TodoStats } from "./todo-stats";
 
 type LoadState = "loading" | "ready" | "error";
@@ -32,10 +32,10 @@ export function TodoDashboard() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<TodoFilter>("all");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editedTodo, setEditedTodo] = useState<Todo | null>(null);
+  const [newTodoStatus, setNewTodoStatus] = useState<TodoStatus>("todo");
   const [todoToDelete, setTodoToDelete] = useState<Todo | null>(null);
 
   // Chargement initial (et nouvel essai quand reloadKey change). Si Django
@@ -87,8 +87,9 @@ export function TodoDashboard() {
     setTodos((current) => current.map((todo) => (todo.id === updated.id ? updated : todo)));
   }
 
-  function openCreateForm() {
+  function openCreateForm(status: TodoStatus = "todo") {
     setEditedTodo(null);
+    setNewTodoStatus(status);
     setIsFormOpen(true);
   }
 
@@ -109,11 +110,15 @@ export function TodoDashboard() {
     setIsFormOpen(false);
   }
 
-  async function handleToggle(todo: Todo) {
+  // Mise à jour « optimiste » : la carte change de colonne tout de suite,
+  // puis on annule le déplacement si Django refuse.
+  async function handleMove(todo: Todo, status: TodoStatus) {
+    replaceTodo({ ...todo, status });
     try {
-      replaceTodo(await withSessionCheck(() => updateTodo(todo.id, { completed: !todo.completed })));
+      replaceTodo(await withSessionCheck(() => updateTodo(todo.id, { status })));
     } catch (err) {
-      toast.error(errorMessage(err));
+      replaceTodo(todo);
+      toast.error(`Impossible de déplacer la tâche vers « ${STATUS_LABELS[status]} ». ${errorMessage(err)}`);
     }
   }
 
@@ -136,26 +141,24 @@ export function TodoDashboard() {
     }
   }
 
-  function resetFilters() {
-    setSearch("");
-    setFilter("all");
-  }
-
   // Valeurs dérivées : recalculées à chaque rendu à partir des vraies données.
   const stats = computeStats(todos);
-  const visibleTodos = filterTodos(todos, filter, search);
+  const visibleTodos = searchTodos(todos, search);
+  const hasNoSearchResult = search.trim() !== "" && visibleTodos.length === 0;
 
   return (
     <div className="flex flex-1 flex-col">
       <AppHeader user={user} onLogout={handleLogout} />
 
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Mes tâches</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Organisez votre journée, une tâche à la fois.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Faites glisser les tâches d&apos;une colonne à l&apos;autre pour suivre leur avancement.
+            </p>
           </div>
-          <Button size="lg" onClick={openCreateForm} disabled={loadState !== "ready"}>
+          <Button size="lg" onClick={() => openCreateForm()} disabled={loadState !== "ready"}>
             <Plus aria-hidden="true" />
             Nouvelle tâche
           </Button>
@@ -168,7 +171,11 @@ export function TodoDashboard() {
                 <Skeleton key={index} className="h-[74px] rounded-xl" />
               ))}
             </div>
-            <TodoListSkeleton />
+            <div className="grid gap-3 md:grid-cols-3" role="status" aria-label="Chargement des tâches">
+              {[0, 1, 2].map((index) => (
+                <Skeleton key={index} className="h-64 rounded-xl" />
+              ))}
+            </div>
           </>
         )}
 
@@ -188,21 +195,35 @@ export function TodoDashboard() {
         {loadState === "ready" && (
           <>
             <TodoStats {...stats} />
-            <TodoFilters search={search} onSearchChange={setSearch} filter={filter} onFilterChange={setFilter} />
-            <TodoList
+            <div className="flex flex-wrap items-center gap-3">
+              <TodoSearch value={search} onChange={setSearch} />
+              {hasNoSearchResult && (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                  Aucune tâche ne correspond à « {search.trim()} ».
+                  <Button variant="link" className="h-auto px-0" onClick={() => setSearch("")}>
+                    Effacer la recherche
+                  </Button>
+                </p>
+              )}
+            </div>
+            <TodoBoard
               todos={visibleTodos}
-              hasTodos={todos.length > 0}
               onCreate={openCreateForm}
-              onResetFilters={resetFilters}
-              onToggle={handleToggle}
               onEdit={openEditForm}
               onDelete={setTodoToDelete}
+              onMove={handleMove}
             />
           </>
         )}
       </main>
 
-      <TodoFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} todo={editedTodo} onSubmit={handleSubmitForm} />
+      <TodoFormDialog
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        todo={editedTodo}
+        defaultStatus={newTodoStatus}
+        onSubmit={handleSubmitForm}
+      />
       <DeleteTodoDialog
         todo={todoToDelete}
         onOpenChange={(open) => !open && setTodoToDelete(null)}

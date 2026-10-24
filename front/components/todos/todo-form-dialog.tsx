@@ -18,19 +18,21 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "@/lib/api";
-import { PRIORITY_LABELS } from "@/lib/todo-utils";
-import type { Priority, Todo, TodoInput } from "@/lib/types";
+import { PRIORITY_LABELS, STATUS_COLUMNS } from "@/lib/todo-utils";
+import type { Priority, Todo, TodoInput, TodoStatus } from "@/lib/types";
 
 type TodoFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   // null : création ; une tâche : modification de cette tâche.
   todo: Todo | null;
+  // Colonne pré-sélectionnée lors d'une création (bouton « Ajouter une tâche »).
+  defaultStatus: TodoStatus;
   onSubmit: (input: TodoInput) => Promise<void>;
 };
 
 // Un seul formulaire pour créer et modifier une tâche.
-export function TodoFormDialog({ open, onOpenChange, todo, onSubmit }: TodoFormDialogProps) {
+export function TodoFormDialog({ open, onOpenChange, todo, defaultStatus, onSubmit }: TodoFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -42,15 +44,16 @@ export function TodoFormDialog({ open, onOpenChange, todo, onSubmit }: TodoFormD
         </DialogHeader>
         {/* Le contenu du Dialog est démonté à la fermeture : le formulaire repart
             de l'état de la tâche à chaque ouverture. */}
-        <TodoForm todo={todo} onSubmit={onSubmit} />
+        <TodoForm todo={todo} defaultStatus={defaultStatus} onSubmit={onSubmit} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function TodoForm({ todo, onSubmit }: Pick<TodoFormDialogProps, "todo" | "onSubmit">) {
+function TodoForm({ todo, defaultStatus, onSubmit }: Pick<TodoFormDialogProps, "todo" | "defaultStatus" | "onSubmit">) {
   const [title, setTitle] = useState(todo?.title ?? "");
   const [description, setDescription] = useState(todo?.description ?? "");
+  const [status, setStatus] = useState<TodoStatus>(todo?.status ?? defaultStatus);
   const [priority, setPriority] = useState<Priority>(todo?.priority ?? "normal");
   const [dueDate, setDueDate] = useState(todo?.due_date ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +71,7 @@ function TodoForm({ todo, onSubmit }: Pick<TodoFormDialogProps, "todo" | "onSubm
     setError(null);
     setTitleError(undefined);
     try {
-      await onSubmit({ title, description, priority, due_date: dueDate || null });
+      await onSubmit({ title, description, status, priority, due_date: dueDate || null });
     } catch (err) {
       setError(err);
       setIsSubmitting(false);
@@ -112,6 +115,22 @@ function TodoForm({ todo, onSubmit }: Pick<TodoFormDialogProps, "todo" | "onSubm
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
+          <Label htmlFor="todo-status">Colonne</Label>
+          <Select value={status} onValueChange={(value) => setStatus(value as TodoStatus)}>
+            <SelectTrigger id="todo-status" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_COLUMNS.map(({ status: value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldError id="todo-status-error" messages={fieldErrors.status} />
+        </div>
+        <div className="flex flex-col gap-2">
           <Label htmlFor="todo-priority">Priorité</Label>
           <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
             <SelectTrigger id="todo-priority" className="w-full">
@@ -127,19 +146,20 @@ function TodoForm({ todo, onSubmit }: Pick<TodoFormDialogProps, "todo" | "onSubm
           </Select>
           <FieldError id="todo-priority-error" messages={fieldErrors.priority} />
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="todo-due-date">
-            Échéance <span className="font-normal text-muted-foreground">(facultative)</span>
-          </Label>
-          <Input
-            id="todo-due-date"
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-            aria-invalid={Boolean(fieldErrors.due_date)}
-          />
-          <FieldError id="todo-due-date-error" messages={fieldErrors.due_date} />
-        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="todo-due-date">
+          Échéance <span className="font-normal text-muted-foreground">(facultative)</span>
+        </Label>
+        <Input
+          id="todo-due-date"
+          type="date"
+          value={dueDate}
+          onChange={(event) => setDueDate(event.target.value)}
+          aria-invalid={Boolean(fieldErrors.due_date)}
+        />
+        <FieldError id="todo-due-date-error" messages={fieldErrors.due_date} />
       </div>
 
       <DialogFooter>
