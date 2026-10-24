@@ -35,9 +35,9 @@ export type TodoInput = Pick<Todo, "title" | "description" | "priority" | "due_d
 // Pour PATCH : on n'envoie que les champs modifiés.
 export type TodoPatch = Partial<TodoInput & Pick<Todo, "completed">>;
 
-// uid et token proviennent du lien reçu par e-mail.
+// code : les 6 chiffres affichés dans le terminal du serveur Django.
 export type PasswordResetPayload = {
-  uid: string;
-  token: string;
+  email: string;
+  code: string;
   new_password: string;
 };

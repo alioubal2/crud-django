@@ -12,7 +12,7 @@ back/    API Django (uv)
   accounts/   modèle User (connexion par e-mail) et API d'authentification
   todos/      modèle Todo et API CRUD
 front/   Interface Next.js (npm)
-  app/        pages : /login, /register, /forgot-password, /reset-password, /dashboard
+  app/        pages : /login, /register, /forgot-password, /dashboard
   components/ composants React (ui/ = composants shadcn/ui)
   lib/        types et appels à l'API
 ```
@@ -70,8 +70,8 @@ Ouvrir http://localhost:3000 (utiliser `localhost` et non `127.0.0.1`, sinon les
 | POST | `/api/auth/login/` | Connexion | public + CSRF |
 | POST | `/api/auth/logout/` | Déconnexion | connecté |
 | GET | `/api/auth/me/` | Utilisateur connecté | connecté |
-| POST | `/api/auth/password-reset/` | Envoie un lien de réinitialisation par e-mail (5/heure) | public + CSRF |
-| POST | `/api/auth/password-reset/confirm/` | Nouveau mot de passe à partir du lien (`uid`, `token`) | public + CSRF |
+| POST | `/api/auth/password-reset/` | Génère un code à 6 chiffres, affiché dans le terminal de Django (5/heure) | public + CSRF |
+| POST | `/api/auth/password-reset/confirm/` | Nouveau mot de passe avec `email`, `code` et `new_password` (code valable 10 min, 5 essais) | public + CSRF |
 | GET, POST | `/api/todos/` | Lister, créer | connecté |
 | GET, PATCH, PUT, DELETE | `/api/todos/<id>/` | Lire, modifier, supprimer | propriétaire |
 
