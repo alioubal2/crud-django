@@ -117,6 +117,7 @@ class CsrfTests(APITestCase):
 
 class PasswordResetTests(APITestCase):
     request_url = '/api/auth/password-reset/'
+    verify_url = '/api/auth/password-reset/verify/'
     confirm_url = '/api/auth/password-reset/confirm/'
     new_password = 'nouveau-mot-de-passe-77'
 
@@ -137,6 +138,33 @@ class PasswordResetTests(APITestCase):
         return self.client.post(self.confirm_url, {
             'email': 'alice@example.com', 'code': code, 'new_password': new_password or self.new_password,
         }, format='json')
+
+    def verify(self, code):
+        return self.client.post(self.verify_url, {'email': 'alice@example.com', 'code': code}, format='json')
+
+    def test_verify_accepts_valid_code_without_consuming_it(self):
+        code = self.request_code()
+
+        self.assertEqual(self.verify(code).status_code, status.HTTP_204_NO_CONTENT)
+        # Le code reste utilisable pour l'étape suivante.
+        self.assertEqual(self.confirm(code).status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_verify_rejects_wrong_code_and_counts_attempt(self):
+        code = self.request_code()
+        wrong_code = '000000' if code != '000000' else '111111'
+
+        response = self.verify(wrong_code)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
+        self.assertEqual(PasswordResetCode.objects.get(user=self.user).attempts, 1)
+
+    def test_verify_rejects_code_for_another_email(self):
+        code = self.request_code()
+
+        response = self.client.post(self.verify_url, {'email': 'bob@example.com', 'code': code}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_request_logs_code_and_stores_only_its_hash(self):
         code = self.request_code()

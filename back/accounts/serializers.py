@@ -81,10 +81,11 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         logger.info('Code de réinitialisation pour %s : %s (valable %s minutes)', user.email, code, minutes)
 
 
-class PasswordResetConfirmSerializer(serializers.Serializer):
+class PasswordResetVerifySerializer(serializers.Serializer):
+    """Vérifie qu'un code est valable pour cet e-mail, sans le consommer."""
+
     email = serializers.EmailField()
     code = serializers.RegexField(r'^\d{6}$', error_messages={'invalid': 'Le code contient 6 chiffres.'})
-    new_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     def validate(self, attrs):
         user = User.objects.filter(email__iexact=attrs['email'], is_active=True).first()
@@ -99,13 +100,23 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             reset_code.save(update_fields=['attempts'])
             raise serializers.ValidationError(INVALID_RESET_CODE)
 
-        try:
-            password_validation.validate_password(attrs['new_password'], user=user)
-        except DjangoValidationError as error:
-            raise serializers.ValidationError({'new_password': list(error.messages)})
-
         attrs['user'] = user
         attrs['reset_code'] = reset_code
+        return attrs
+
+
+class PasswordResetConfirmSerializer(PasswordResetVerifySerializer):
+    """Revérifie le code (le client ne doit pas pouvoir sauter l'étape de
+    vérification) puis enregistre le nouveau mot de passe."""
+
+    new_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        try:
+            password_validation.validate_password(attrs['new_password'], user=attrs['user'])
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({'new_password': list(error.messages)})
         return attrs
 
     def save(self):

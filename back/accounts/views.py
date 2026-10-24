@@ -11,6 +11,7 @@ from .serializers import (
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PasswordResetVerifySerializer,
     RegisterSerializer,
     UserSerializer,
 )
@@ -85,6 +86,21 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         # Même réponse que le compte existe ou non.
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_protect, name='dispatch')
+class PasswordResetVerifyView(APIView):
+    """Vérifie le code à 6 chiffres avant de laisser choisir un nouveau mot de passe."""
+
+    permission_classes = [AllowAny]
+    # Même compteur que la confirmation : les deux vérifient le code.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset_confirm'
+
+    def post(self, request):
+        serializer = PasswordResetVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
