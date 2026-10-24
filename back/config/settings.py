@@ -86,6 +86,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Limites de requêtes pour les vues qui déclarent un throttle_scope.
+    'DEFAULT_THROTTLE_RATES': {
+        'password_reset': '5/hour',
+    },
 }
 
 ROOT_URLCONF = 'config.urls'
@@ -171,3 +175,11 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# En développement, les e-mails sont affichés dans le terminal de runserver.
+DEFAULT_FROM_EMAIL = 'Todo List <no-reply@localhost>'
+
+# Réinitialisation du mot de passe : URL de la page du front qui reçoit le lien,
+# et durée de validité du lien (en secondes).
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+PASSWORD_RESET_TIMEOUT = 60 * 60
