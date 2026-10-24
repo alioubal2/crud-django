@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { AuthCard } from "@/components/AuthCard";
-import { LoginForm } from "@/components/LoginForm";
+import { AuthCard } from "@/components/auth/auth-card";
+import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = {
   title: "Connexion",
@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <AuthCard
-      title="Connexion"
-      subtitle="Retrouvez vos tâches."
+      title="Bon retour"
+      description="Connectez-vous pour retrouver vos tâches."
       footerText="Pas encore de compte ?"
       footerLinkLabel="Créer un compte"
       footerHref="/register"
