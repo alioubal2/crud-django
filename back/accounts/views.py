@@ -94,7 +94,7 @@ class PasswordResetConfirmView(APIView):
 
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'password_reset'
+    throttle_scope = 'password_reset_confirm'
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
