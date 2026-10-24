@@ -12,8 +12,8 @@ back/    API Django (uv)
   accounts/   modèle User (connexion par e-mail) et API d'authentification
   todos/      modèle Todo et API CRUD
 front/   Interface Next.js (npm)
-  app/        pages : /login, /register, /todos
-  components/ composants React
+  app/        pages : /login, /register, /dashboard
+  components/ composants React (ui/ = composants shadcn/ui)
   lib/        types et appels à l'API
 ```
 
