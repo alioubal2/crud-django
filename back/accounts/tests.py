@@ -134,37 +134,16 @@ class PasswordResetTests(APITestCase):
             self.client.post(self.request_url, {'email': 'ALICE@example.com'}, format='json')
         return re.search(r'\b(\d{6})\b', logs.output[-1]).group(1)
 
-    def confirm(self, code, new_password=None):
+    def verify(self, code, email='alice@example.com'):
+        return self.client.post(self.verify_url, {'email': email, 'code': code}, format='json')
+
+    def confirm(self, new_password=None):
         return self.client.post(self.confirm_url, {
-            'email': 'alice@example.com', 'code': code, 'new_password': new_password or self.new_password,
+            'new_password': new_password or self.new_password,
         }, format='json')
 
-    def verify(self, code):
-        return self.client.post(self.verify_url, {'email': 'alice@example.com', 'code': code}, format='json')
-
-    def test_verify_accepts_valid_code_without_consuming_it(self):
-        code = self.request_code()
-
-        self.assertEqual(self.verify(code).status_code, status.HTTP_204_NO_CONTENT)
-        # Le code reste utilisable pour l'étape suivante.
-        self.assertEqual(self.confirm(code).status_code, status.HTTP_204_NO_CONTENT)
-
-    def test_verify_rejects_wrong_code_and_counts_attempt(self):
-        code = self.request_code()
-        wrong_code = '000000' if code != '000000' else '111111'
-
-        response = self.verify(wrong_code)
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('non_field_errors', response.data)
-        self.assertEqual(PasswordResetCode.objects.get(user=self.user).attempts, 1)
-
-    def test_verify_rejects_code_for_another_email(self):
-        code = self.request_code()
-
-        response = self.client.post(self.verify_url, {'email': 'bob@example.com', 'code': code}, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    def wrong_code(self, code):
+        return '000000' if code != '000000' else '111111'
 
     def test_request_logs_code_and_stores_only_its_hash(self):
         code = self.request_code()
@@ -179,61 +158,92 @@ class PasswordResetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(PasswordResetCode.objects.exists())
 
-    def test_confirm_changes_password_and_consumes_code(self):
+    def test_full_flow_changes_password_and_consumes_code(self):
         code = self.request_code()
 
-        response = self.confirm(code)
+        self.assertEqual(self.verify(code).status_code, status.HTTP_204_NO_CONTENT)
+        response = self.confirm()
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(self.new_password))
         self.assertFalse(PasswordResetCode.objects.exists())
-        # Le même code ne fonctionne plus.
-        self.assertEqual(self.confirm(code, 'encore-un-autre-88').status_code, status.HTTP_400_BAD_REQUEST)
+        # Ni le code ni la vérification ne resservent.
+        self.assertEqual(self.confirm('encore-un-autre-88').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.verify(code).status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_new_request_replaces_previous_code(self):
-        first_code = self.request_code()
-        second_code = self.request_code()
+    def test_confirm_without_verification_is_rejected(self):
+        self.request_code()
 
-        if first_code != second_code:
-            self.assertEqual(self.confirm(first_code).status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(self.confirm(second_code).status_code, status.HTTP_204_NO_CONTENT)
+        response = self.confirm()
 
-    def test_wrong_code_counts_attempts_then_blocks(self):
-        code = self.request_code()
-        wrong_code = '000000' if code != '000000' else '111111'
-
-        for _ in range(PasswordResetCode.MAX_ATTEMPTS):
-            response = self.confirm(wrong_code)
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-            self.assertIn('non_field_errors', response.data)
-
-        # Même le bon code est refusé une fois les essais épuisés.
-        self.assertEqual(self.confirm(code).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
         self.assertTrue(self.user.check_password(PASSWORD))
 
-    def test_expired_code_is_rejected(self):
+    def test_verification_is_tied_to_the_visitor_session(self):
         code = self.request_code()
+        self.verify(code)
+
+        other_visitor = APIClient()
+        response = other_visitor.post(self.confirm_url, {'new_password': self.new_password}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_new_code_invalidates_previous_verification(self):
+        code = self.request_code()
+        self.verify(code)
+        self.request_code()
+
+        self.assertEqual(self.confirm().status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_verify_rejects_wrong_code_and_counts_attempt(self):
+        code = self.request_code()
+
+        response = self.verify(self.wrong_code(code))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
+        self.assertEqual(PasswordResetCode.objects.get(user=self.user).attempts, 1)
+
+    def test_verify_blocks_after_max_attempts(self):
+        code = self.request_code()
+        for _ in range(PasswordResetCode.MAX_ATTEMPTS):
+            self.verify(self.wrong_code(code))
+
+        # Même le bon code est refusé une fois les essais épuisés.
+        self.assertEqual(self.verify(code).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_verify_rejects_code_for_another_email(self):
+        code = self.request_code()
+
+        self.assertEqual(self.verify(code, email='bob@example.com').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_expired_code_is_rejected_at_both_steps(self):
+        code = self.request_code()
+        self.verify(code)
         PasswordResetCode.objects.filter(user=self.user).update(
             created_at=timezone.now() - PasswordResetCode.VALIDITY - timedelta(seconds=1),
         )
 
-        self.assertEqual(self.confirm(code).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.confirm().status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.verify(code).status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_confirm_rejects_malformed_code(self):
-        response = self.confirm('12ab')
+    def test_verify_rejects_malformed_code(self):
+        response = self.verify('12ab')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('code', response.data)
 
-    def test_confirm_rejects_weak_password_without_consuming_code(self):
+    def test_weak_password_keeps_verification(self):
         code = self.request_code()
+        self.verify(code)
 
-        response = self.confirm(code, '1234')
+        response = self.confirm('1234')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('new_password', response.data)
-        self.assertEqual(self.confirm(code).status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(self.confirm().status_code, status.HTTP_204_NO_CONTENT)
 
     def test_requests_are_throttled(self):
         for _ in range(5):

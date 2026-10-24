@@ -9,6 +9,10 @@ from .models import PasswordResetCode, User
 logger = logging.getLogger(__name__)
 
 INVALID_RESET_CODE = 'Code invalide ou expiré. Demandez un nouveau code.'
+EXPIRED_RESET_SESSION = 'Votre vérification a expiré. Recommencez la réinitialisation.'
+
+# Clé de session où la vue de vérification note le code validé.
+PASSWORD_RESET_SESSION_KEY = 'password_reset'
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -105,26 +109,44 @@ class PasswordResetVerifySerializer(serializers.Serializer):
         return attrs
 
 
-class PasswordResetConfirmSerializer(PasswordResetVerifySerializer):
-    """Revérifie le code (le client ne doit pas pouvoir sauter l'étape de
-    vérification) puis enregistre le nouveau mot de passe."""
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Enregistre le nouveau mot de passe d'un visiteur qui a vérifié son code.
+
+    Ni l'e-mail ni le code ne sont renvoyés : la vue de vérification a noté dans
+    la session Django quel code a été validé. Impossible donc d'arriver ici sans
+    être passé par l'étape de vérification.
+    """
 
     new_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     def validate(self, attrs):
-        attrs = super().validate(attrs)
+        verified = self.context['request'].session.get(PASSWORD_RESET_SESSION_KEY)
+        reset_code = None
+        if verified:
+            # On retrouve le code par son empreinte : si un nouveau code a été
+            # demandé depuis la vérification, celle-ci ne vaut plus rien.
+            reset_code = PasswordResetCode.objects.select_related('user').filter(
+                user_id=verified['user_id'], code_hash=verified['code_hash'], user__is_active=True,
+            ).first()
+        if reset_code is None or not reset_code.is_usable():
+            raise serializers.ValidationError(EXPIRED_RESET_SESSION)
+
         try:
-            password_validation.validate_password(attrs['new_password'], user=attrs['user'])
+            password_validation.validate_password(attrs['new_password'], user=reset_code.user)
         except DjangoValidationError as error:
             raise serializers.ValidationError({'new_password': list(error.messages)})
+
+        attrs['reset_code'] = reset_code
         return attrs
 
     def save(self):
-        user = self.validated_data['user']
+        reset_code = self.validated_data['reset_code']
+        user = reset_code.user
         # set_password hache le mot de passe. Le changer invalide aussi les
         # sessions ouvertes ailleurs.
         user.set_password(self.validated_data['new_password'])
         user.save(update_fields=['password'])
-        # Le code ne sert qu'une fois.
-        self.validated_data['reset_code'].delete()
+        # Le code ne sert qu'une fois, la vérification non plus.
+        reset_code.delete()
+        self.context['request'].session.pop(PASSWORD_RESET_SESSION_KEY, None)
         return user

@@ -8,6 +8,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .serializers import (
+    PASSWORD_RESET_SESSION_KEY,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -94,26 +95,34 @@ class PasswordResetVerifyView(APIView):
     """Vérifie le code à 6 chiffres avant de laisser choisir un nouveau mot de passe."""
 
     permission_classes = [AllowAny]
-    # Même compteur que la confirmation : les deux vérifient le code.
+    # Même compteur que la confirmation (un parcours = une vérification + une confirmation).
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'password_reset_confirm'
 
     def post(self, request):
         serializer = PasswordResetVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        reset_code = serializer.validated_data['reset_code']
+        # Nouvelle clé de session (protection contre la fixation de session),
+        # puis on note quel code a été vérifié pour la page suivante.
+        request.session.cycle_key()
+        request.session[PASSWORD_RESET_SESSION_KEY] = {
+            'user_id': reset_code.user_id,
+            'code_hash': reset_code.code_hash,
+        }
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @method_decorator(csrf_protect, name='dispatch')
 class PasswordResetConfirmView(APIView):
-    """Remplace le mot de passe à partir du code à 6 chiffres."""
+    """Remplace le mot de passe une fois le code vérifié (voir PasswordResetVerifyView)."""
 
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'password_reset_confirm'
 
     def post(self, request):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer = PasswordResetConfirmSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
