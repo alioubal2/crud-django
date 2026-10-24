@@ -45,7 +45,7 @@ class TodoApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         todo = Todo.objects.get(id=response.data['id'])
         self.assertEqual(todo.owner, self.alice)
-        self.assertFalse(todo.completed)
+        self.assertEqual(todo.status, Todo.Status.TODO)
         self.assertEqual(todo.description, '')
         self.assertEqual(todo.priority, Todo.Priority.NORMAL)
         self.assertIsNone(todo.due_date)
@@ -82,17 +82,25 @@ class TodoApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual([todo['title'] for todo in response.data], ['Tâche Alice'])
 
-    def test_update_and_toggle_todo(self):
+    def test_update_and_move_todo(self):
         todo = Todo.objects.create(title='Ancien titre', owner=self.alice)
 
         response = self.client.patch(self.detail_url(todo), {
-            'title': 'Nouveau titre', 'completed': True,
+            'title': 'Nouveau titre', 'status': 'in_progress',
         }, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         todo.refresh_from_db()
         self.assertEqual(todo.title, 'Nouveau titre')
-        self.assertTrue(todo.completed)
+        self.assertEqual(todo.status, Todo.Status.IN_PROGRESS)
+
+    def test_update_rejects_unknown_status(self):
+        todo = Todo.objects.create(title='Tâche', owner=self.alice)
+
+        response = self.client.patch(self.detail_url(todo), {'status': 'archived'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('status', response.data)
 
     def test_delete_todo(self):
         todo = Todo.objects.create(title='À supprimer', owner=self.alice)
@@ -108,9 +116,9 @@ class TodoApiTests(APITestCase):
 
         self.assertEqual(self.client.get(url).status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(
-            self.client.patch(url, {'completed': True}, format='json').status_code,
+            self.client.patch(url, {'status': 'done'}, format='json').status_code,
             status.HTTP_404_NOT_FOUND,
         )
         self.assertEqual(self.client.delete(url).status_code, status.HTTP_404_NOT_FOUND)
         bobs_todo.refresh_from_db()
-        self.assertFalse(bobs_todo.completed)
+        self.assertEqual(bobs_todo.status, Todo.Status.TODO)
