@@ -3,7 +3,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { ArrowRightLeft, CalendarDays, Ellipsis, Pencil, Trash2 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDueDate, isOverdue, STATUS_COLUMNS } from "@/lib/todo-utils";
 import type { Todo, TodoStatus } from "@/lib/types";
+import { PriorityBadge } from "./priority-badge";
 
 type TodoCardProps = {
   todo: Todo;
@@ -106,13 +106,7 @@ function TodoCardBody({ todo }: { todo: Todo }) {
 
   return (
     <div className="flex flex-col gap-1.5 pr-6">
-      {/* Badge uniquement quand la priorité sort de l'ordinaire. */}
-      {todo.priority === "high" && (
-        <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning">
-          Priorité haute
-        </Badge>
-      )}
-      {todo.priority === "low" && <Badge variant="secondary">Priorité basse</Badge>}
+      <PriorityBadge priority={todo.priority} />
       <p className={`text-sm font-medium break-words ${isDone ? "text-muted-foreground line-through" : ""}`}>
         {todo.title}
       </p>
@@ -122,7 +116,7 @@ function TodoCardBody({ todo }: { todo: Todo }) {
         </p>
       )}
       {todo.due_date && (
-        <p className={`flex items-center gap-1 text-xs ${overdue ? "font-medium text-warning" : "text-muted-foreground"}`}>
+        <p className={`flex items-center gap-1 text-xs ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}>
           <CalendarDays className="size-3.5" aria-hidden="true" />
           {formatDueDate(todo.due_date)}
           {overdue && " · en retard"}

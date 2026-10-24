@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "@/lib/api";
 import { PRIORITY_LABELS, STATUS_COLUMNS } from "@/lib/todo-utils";
 import type { Priority, Todo, TodoInput, TodoStatus } from "@/lib/types";
+import { PriorityDot } from "./priority-badge";
 
 type TodoFormDialogProps = {
   open: boolean;
@@ -139,6 +140,7 @@ function TodoForm({ todo, defaultStatus, onSubmit }: Pick<TodoFormDialogProps, "
             <SelectContent>
               {(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => (
                 <SelectItem key={value} value={value}>
+                  <PriorityDot priority={value} />
                   {PRIORITY_LABELS[value]}
                 </SelectItem>
               ))}
