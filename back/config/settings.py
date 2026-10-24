@@ -64,11 +64,29 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS : origines autorisées à appeler l'API depuis un navigateur.
-# Valeur de développement local uniquement.
-CORS_ALLOWED_ORIGINS = [
+# --- Frontend Next.js (valeurs de développement local uniquement) ---
+FRONTEND_ORIGINS = [
     'http://localhost:3000',
 ]
+
+# CORS : origines autorisées à appeler l'API depuis un navigateur.
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+# Autorise le navigateur à envoyer les cookies (session, CSRF) avec les requêtes.
+CORS_ALLOW_CREDENTIALS = True
+# Origines acceptées par la vérification CSRF pour les requêtes POST/PATCH/DELETE.
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
+
+REST_FRAMEWORK = {
+    # Authentification par cookie de session Django (voir accounts/authentication.py).
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.SessionAuthentication401',
+    ],
+    # Par défaut, tout endpoint exige un utilisateur connecté.
+    # Les endpoints publics (santé, inscription, connexion) le précisent eux-mêmes.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
 
 ROOT_URLCONF = 'config.urls'
 
