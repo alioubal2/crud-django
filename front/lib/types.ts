@@ -36,8 +36,11 @@ export type TodoInput = Pick<Todo, "title" | "description" | "priority" | "due_d
 export type TodoPatch = Partial<TodoInput & Pick<Todo, "completed">>;
 
 // code : les 6 chiffres affichés dans le terminal du serveur Django.
-export type PasswordResetPayload = {
+export type PasswordResetCodePayload = {
   email: string;
   code: string;
+};
+
+export type PasswordResetPayload = PasswordResetCodePayload & {
   new_password: string;
 };

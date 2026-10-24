@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { LoginPayload, PasswordResetPayload, RegisterPayload, User } from "./types";
+import type { LoginPayload, PasswordResetCodePayload, PasswordResetPayload, RegisterPayload, User } from "./types";
 
 export function getCurrentUser(): Promise<User> {
   return apiFetch<User>("/api/auth/me/");
@@ -19,6 +19,10 @@ export function logout(): Promise<void> {
 
 export function requestPasswordReset(email: string): Promise<void> {
   return apiFetch<void>("/api/auth/password-reset/", { method: "POST", body: { email } });
+}
+
+export function verifyPasswordResetCode(payload: PasswordResetCodePayload): Promise<void> {
+  return apiFetch<void>("/api/auth/password-reset/verify/", { method: "POST", body: payload });
 }
 
 export function confirmPasswordReset(payload: PasswordResetPayload): Promise<void> {

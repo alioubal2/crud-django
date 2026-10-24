@@ -71,6 +71,7 @@ Ouvrir http://localhost:3000 (utiliser `localhost` et non `127.0.0.1`, sinon les
 | POST | `/api/auth/logout/` | Déconnexion | connecté |
 | GET | `/api/auth/me/` | Utilisateur connecté | connecté |
 | POST | `/api/auth/password-reset/` | Génère un code à 6 chiffres, affiché dans le terminal de Django (5/heure) | public + CSRF |
+| POST | `/api/auth/password-reset/verify/` | Vérifie le code (`email`, `code`) sans le consommer | public + CSRF |
 | POST | `/api/auth/password-reset/confirm/` | Nouveau mot de passe avec `email`, `code` et `new_password` (code valable 10 min, 5 essais) | public + CSRF |
 | GET, POST | `/api/todos/` | Lister, créer | connecté |
 | GET, PATCH, PUT, DELETE | `/api/todos/<id>/` | Lire, modifier, supprimer | propriétaire |
