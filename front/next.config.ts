@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     agentFeedback: true,
   },
   cacheComponents: true,
+  // L'ancienne page /todos s'appelle désormais /dashboard.
+  redirects() {
+    return [{ source: "/todos", destination: "/dashboard", permanent: true }];
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {
