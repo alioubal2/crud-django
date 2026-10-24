@@ -177,10 +177,16 @@ MAILERS = {
     },
 }
 
-# En développement, les e-mails sont affichés dans le terminal de runserver.
-DEFAULT_FROM_EMAIL = 'Todo List <no-reply@localhost>'
 
-# Réinitialisation du mot de passe : URL de la page du front qui reçoit le lien,
-# et durée de validité du lien (en secondes).
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-PASSWORD_RESET_TIMEOUT = 60 * 60
+# Logs : les messages INFO de l'app accounts (dont les codes de réinitialisation
+# du mot de passe) s'affichent dans le terminal de runserver.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'accounts': {'handlers': ['console'], 'level': 'INFO'},
+    },
+}

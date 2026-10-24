@@ -73,7 +73,7 @@ class MeView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class PasswordResetRequestView(APIView):
-    """Envoie un lien de réinitialisation si un compte correspond à l'e-mail."""
+    """Génère un code de réinitialisation si un compte correspond à l'e-mail."""
 
     permission_classes = [AllowAny]
     # Limite le nombre de demandes (voir DEFAULT_THROTTLE_RATES) : au-delà, 429.
@@ -90,7 +90,7 @@ class PasswordResetRequestView(APIView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class PasswordResetConfirmView(APIView):
-    """Remplace le mot de passe à partir du lien reçu par e-mail."""
+    """Remplace le mot de passe à partir du code à 6 chiffres."""
 
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]

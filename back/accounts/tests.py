@@ -1,12 +1,12 @@
 import re
-from urllib.parse import parse_qs, urlparse
+from datetime import timedelta
 
-from django.core import mail
 from django.core.cache import cache
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from .models import User
+from .models import PasswordResetCode, User
 
 PASSWORD = 'motdepasse-solide-42'
 
@@ -127,73 +127,90 @@ class PasswordResetTests(APITestCase):
             email='alice@example.com', username='alice', password=PASSWORD,
         )
 
-    def request_reset_link(self):
-        """Demande un lien et renvoie les paramètres uid et token de l'e-mail envoyé."""
-        self.client.post(self.request_url, {'email': 'ALICE@example.com'}, format='json')
-        link = re.search(r'http://\S+', mail.outbox[-1].body).group()
-        params = parse_qs(urlparse(link).query)
-        return params['uid'][0], params['token'][0]
+    def request_code(self):
+        """Demande un code et le récupère dans les logs, comme dans le terminal."""
+        with self.assertLogs('accounts', level='INFO') as logs:
+            self.client.post(self.request_url, {'email': 'ALICE@example.com'}, format='json')
+        return re.search(r'\b(\d{6})\b', logs.output[-1]).group(1)
 
-    def test_request_sends_email_with_link(self):
-        response = self.client.post(self.request_url, {'email': 'alice@example.com'}, format='json')
+    def confirm(self, code, new_password=None):
+        return self.client.post(self.confirm_url, {
+            'email': 'alice@example.com', 'code': code, 'new_password': new_password or self.new_password,
+        }, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['alice@example.com'])
-        self.assertIn('http://localhost:3000/reset-password?uid=', mail.outbox[0].body)
+    def test_request_logs_code_and_stores_only_its_hash(self):
+        code = self.request_code()
 
-    def test_request_with_unknown_email_gives_same_response_without_email(self):
+        reset_code = PasswordResetCode.objects.get(user=self.user)
+        self.assertNotEqual(reset_code.code_hash, code)
+        self.assertTrue(reset_code.matches(code))
+
+    def test_request_with_unknown_email_gives_same_response_without_code(self):
         response = self.client.post(self.request_url, {'email': 'inconnu@example.com'}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(PasswordResetCode.objects.exists())
 
-    def test_confirm_changes_password(self):
-        uid, token = self.request_reset_link()
+    def test_confirm_changes_password_and_consumes_code(self):
+        code = self.request_code()
 
-        response = self.client.post(self.confirm_url, {
-            'uid': uid, 'token': token, 'new_password': self.new_password,
-        }, format='json')
+        response = self.confirm(code)
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(self.new_password))
-        self.assertFalse(self.user.check_password(PASSWORD))
+        self.assertFalse(PasswordResetCode.objects.exists())
+        # Le même code ne fonctionne plus.
+        self.assertEqual(self.confirm(code, 'encore-un-autre-88').status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_link_cannot_be_used_twice(self):
-        uid, token = self.request_reset_link()
-        payload = {'uid': uid, 'token': token, 'new_password': self.new_password}
-        self.client.post(self.confirm_url, payload, format='json')
+    def test_new_request_replaces_previous_code(self):
+        first_code = self.request_code()
+        second_code = self.request_code()
 
-        response = self.client.post(self.confirm_url, {**payload, 'new_password': 'encore-un-autre-88'}, format='json')
+        if first_code != second_code:
+            self.assertEqual(self.confirm(first_code).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.confirm(second_code).status_code, status.HTTP_204_NO_CONTENT)
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('non_field_errors', response.data)
+    def test_wrong_code_counts_attempts_then_blocks(self):
+        code = self.request_code()
+        wrong_code = '000000' if code != '000000' else '111111'
 
-    def test_confirm_rejects_invalid_token(self):
-        uid, _ = self.request_reset_link()
+        for _ in range(PasswordResetCode.MAX_ATTEMPTS):
+            response = self.confirm(wrong_code)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn('non_field_errors', response.data)
 
-        response = self.client.post(self.confirm_url, {
-            'uid': uid, 'token': 'faux-jeton', 'new_password': self.new_password,
-        }, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Même le bon code est refusé une fois les essais épuisés.
+        self.assertEqual(self.confirm(code).status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(self.user.check_password(PASSWORD))
 
-    def test_confirm_rejects_weak_password(self):
-        uid, token = self.request_reset_link()
+    def test_expired_code_is_rejected(self):
+        code = self.request_code()
+        PasswordResetCode.objects.filter(user=self.user).update(
+            created_at=timezone.now() - PasswordResetCode.VALIDITY - timedelta(seconds=1),
+        )
 
-        response = self.client.post(self.confirm_url, {
-            'uid': uid, 'token': token, 'new_password': '1234',
-        }, format='json')
+        self.assertEqual(self.confirm(code).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_confirm_rejects_malformed_code(self):
+        response = self.confirm('12ab')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('code', response.data)
+
+    def test_confirm_rejects_weak_password_without_consuming_code(self):
+        code = self.request_code()
+
+        response = self.confirm(code, '1234')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('new_password', response.data)
+        self.assertEqual(self.confirm(code).status_code, status.HTTP_204_NO_CONTENT)
 
     def test_requests_are_throttled(self):
         for _ in range(5):
-            self.client.post(self.request_url, {'email': 'alice@example.com'}, format='json')
+            self.client.post(self.request_url, {'email': 'inconnu@example.com'}, format='json')
 
-        response = self.client.post(self.request_url, {'email': 'alice@example.com'}, format='json')
+        response = self.client.post(self.request_url, {'email': 'inconnu@example.com'}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
