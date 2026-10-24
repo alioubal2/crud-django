@@ -11,7 +11,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthCard
       title="Mot de passe oublié"
-      description="Indiquez votre e-mail : un code à 6 chiffres vous permettra d'en choisir un nouveau."
+      description="Étape 1 sur 3 · Indiquez votre e-mail pour recevoir un code à 6 chiffres."
       footerText="Vous vous en souvenez ?"
       footerLinkLabel="Se connecter"
       footerHref="/login"

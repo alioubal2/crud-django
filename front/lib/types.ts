@@ -40,7 +40,3 @@ export type PasswordResetCodePayload = {
   email: string;
   code: string;
 };
-
-export type PasswordResetPayload = PasswordResetCodePayload & {
-  new_password: string;
-};

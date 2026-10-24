@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { LoginPayload, PasswordResetCodePayload, PasswordResetPayload, RegisterPayload, User } from "./types";
+import type { LoginPayload, PasswordResetCodePayload, RegisterPayload, User } from "./types";
 
 export function getCurrentUser(): Promise<User> {
   return apiFetch<User>("/api/auth/me/");
@@ -25,6 +25,8 @@ export function verifyPasswordResetCode(payload: PasswordResetCodePayload): Prom
   return apiFetch<void>("/api/auth/password-reset/verify/", { method: "POST", body: payload });
 }
 
-export function confirmPasswordReset(payload: PasswordResetPayload): Promise<void> {
-  return apiFetch<void>("/api/auth/password-reset/confirm/", { method: "POST", body: payload });
+// Pas besoin de renvoyer l'e-mail ni le code : Django a mémorisé dans la
+// session que le code a été vérifié.
+export function confirmPasswordReset(newPassword: string): Promise<void> {
+  return apiFetch<void>("/api/auth/password-reset/confirm/", { method: "POST", body: { new_password: newPassword } });
 }
