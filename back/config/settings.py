@@ -10,17 +10,23 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Charge les variables du fichier back/.env dans os.environ
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-p)x75819ldw8%_0)(3o@6z6fv86nxnn02*(-+t53x@1*#8e%_('
+SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -30,6 +36,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -37,17 +44,54 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Bibliothèques tierces
+    'rest_framework',
+    'corsheaders',
+    # Nos applications
+    'accounts',
+    'todos',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# --- Frontend Next.js (valeurs de développement local uniquement) ---
+FRONTEND_ORIGINS = [
+    'http://localhost:3000',
+]
+
+# CORS : origines autorisées à appeler l'API depuis un navigateur.
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+# Autorise le navigateur à envoyer les cookies (session, CSRF) avec les requêtes.
+CORS_ALLOW_CREDENTIALS = True
+# Origines acceptées par la vérification CSRF pour les requêtes POST/PATCH/DELETE.
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
+
+REST_FRAMEWORK = {
+    # Authentification par cookie de session Django (voir accounts/authentication.py).
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.SessionAuthentication401',
+    ],
+    # Par défaut, tout endpoint exige un utilisateur connecté.
+    # Les endpoints publics (santé, inscription, connexion) le précisent eux-mêmes.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    # Limites de requêtes pour les vues qui déclarent un throttle_scope.
+    'DEFAULT_THROTTLE_RATES': {
+        'password_reset': '5/hour',
+        'password_reset_confirm': '20/hour',
+    },
+}
 
 ROOT_URLCONF = 'config.urls'
 
@@ -74,11 +118,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['DB_USER'],
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
+
+# Modèle utilisateur personnalisé (doit être défini avant la première migration)
+AUTH_USER_MODEL = 'accounts.User'
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -102,7 +153,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'fr-fr'
 
 TIME_ZONE = 'UTC'
 
@@ -123,5 +174,19 @@ STATIC_URL = 'static/'
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    },
+}
+
+
+# Logs : les messages INFO de l'app accounts (dont les codes de réinitialisation
+# du mot de passe) s'affichent dans le terminal de runserver.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'accounts': {'handlers': ['console'], 'level': 'INFO'},
     },
 }
